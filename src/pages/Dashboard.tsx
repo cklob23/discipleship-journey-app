@@ -18,6 +18,8 @@ interface Connection {
   otherDisplayName: string;
   otherAvatarUrl?: string;
   otherRole: string;
+  otherEmail?: string;
+  otherUserId?: string;
 }
 
 export default function Dashboard() {
@@ -117,7 +119,9 @@ export default function Dashboard() {
         status: 'pending',
         otherDisplayName: targetDisplayName,
         otherAvatarUrl: targetAvatarUrl,
-        otherRole: targetProfile.role || 'user'
+        otherRole: targetProfile.role || 'user',
+        otherEmail: targetProfile.email || '',
+        otherUserId: targetUserId
       });
 
       // Create connection record for target user (receiver) - stores sender's info
@@ -129,7 +133,9 @@ export default function Dashboard() {
         status: 'pending',
         otherDisplayName: profile.displayName,
         otherAvatarUrl: profile.avatarUrl || '',
-        otherRole: profile.role
+        otherRole: profile.role,
+        otherEmail: profile.email || '',
+        otherUserId: profile.userId
       });
 
       toast.success('Invitation sent!');
@@ -269,7 +275,9 @@ export default function Dashboard() {
                           </div>
                         </CardHeader>
                         <CardContent className="flex items-center justify-between pt-0">
-                          <Badge className="bg-primary/5 text-primary hover:bg-primary/10 border-transparent">Active Journey</Badge>
+                          <Badge className={conn.status === 'active' ? "bg-primary/5 text-primary hover:bg-primary/10 border-transparent" : "bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20 border-transparent"}>
+                            {conn.status === 'active' ? 'Active Journey' : 'Action Required'}
+                          </Badge>
                           <MessageSquare className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                         </CardContent>
                       </Card>

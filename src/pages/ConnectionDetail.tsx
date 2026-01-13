@@ -56,7 +56,8 @@ export default function ConnectionDetail() {
         displayName: (conn as any).otherDisplayName,
         avatarUrl: (conn as any).otherAvatarUrl,
         role: (conn as any).otherRole,
-        userId: null // We don't have this but may not need it
+        email: (conn as any).otherEmail,
+        userId: (conn as any).otherUserId
       });
 
       const covs = await blink.db.covenants.list({ where: { userId: profile.userId } });
@@ -161,11 +162,15 @@ export default function ConnectionDetail() {
 
       // Notify the other person via email
       if (otherProfile?.email) {
-        await blink.notifications.email({
-          to: otherProfile.email,
-          subject: `New message from ${profile.displayName}`,
-          text: `Hi ${otherProfile.displayName}, you have a new message: "${newMessage.trim()}"`
-        });
+        try {
+          await blink.notifications.email({
+            to: otherProfile.email,
+            subject: `New message from ${profile.displayName}`,
+            text: `Hi ${otherProfile.displayName}, you have a new message from your discipleship partner ${profile.displayName}: "${newMessage.trim()}"\n\nReply here: ${window.location.origin}/connection/${id}`
+          });
+        } catch (emailErr) {
+          console.error('Email notification failed:', emailErr);
+        }
       }
 
       setNewMessage('');
@@ -191,7 +196,20 @@ export default function ConnectionDetail() {
       
       toast.success('Covenant signed!');
       setActiveTab('chat');
-      } catch (error) {
+
+      // Notify other user
+      if (otherProfile?.email) {
+        try {
+          await blink.notifications.email({
+            to: otherProfile.email,
+            subject: `Covenant signed by ${profile.displayName}`,
+            text: `Hi ${otherProfile.displayName}, ${profile.displayName} has signed the discipleship covenant. ${otherSigned ? 'The journey is now officially active!' : 'Please review and sign the covenant to begin your journey together.'}\n\nView here: ${window.location.origin}/connection/${id}`
+          });
+        } catch (emailErr) {
+          console.error('Email notification failed:', emailErr);
+        }
+      }
+    } catch (error) {
       console.error('Signing error:', error);
     }
   };
