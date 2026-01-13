@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { blink } from '@/lib/blink';
 import { Link } from 'react-router-dom';
 import { Plus, Search, MessageSquare, Handshake, LogOut, UserPlus } from 'lucide-react';
