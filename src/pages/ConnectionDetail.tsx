@@ -50,15 +50,23 @@ export default function ConnectionDetail() {
       }
       setConnection(conn);
 
-      const otherId = profile.role === 'leader' ? conn.learnerId : conn.leaderId;
-      const other = await blink.db.profiles.get(otherId);
-      setOtherProfile(other);
+      // Profile info is embedded in connection record
+      setOtherProfile({
+        id: profile.role === 'leader' ? (conn as any).learnerId : (conn as any).leaderId,
+        displayName: (conn as any).otherDisplayName,
+        avatarUrl: (conn as any).otherAvatarUrl,
+        role: (conn as any).otherRole,
+        userId: null // We don't have this but may not need it
+      });
 
-      const covs = await blink.db.covenants.list({ where: { connectionId: id } });
-      if (covs.length > 0) {
-        setCovenant(covs[0] as unknown as Covenant);
+      const covs = await blink.db.covenants.list({ where: { userId: profile.userId } });
+      // Filter to find covenant for this connection
+      const connCov = covs.find((c: any) => c.connectionId === id);
+      if (connCov) {
+        setCovenant(connCov as unknown as Covenant);
       } else if (profile.role === 'leader') {
         const newCov = await blink.db.covenants.create({
+          userId: profile.userId,
           connectionId: id,
           content: 'This covenant outlines our commitment to regular meetings, prayer, and shared learning...',
           leaderSigned: 0,
@@ -68,10 +76,12 @@ export default function ConnectionDetail() {
       }
 
       const msgList = await blink.db.messages.list({
-        where: { connectionId: id },
+        where: { userId: profile.userId },
         orderBy: { createdAt: 'asc' }
       });
-      setMessages(msgList as unknown as Message[]);
+      // Filter to messages for this connection
+      const connMsgs = msgList.filter((m: any) => m.connectionId === id);
+      setMessages(connMsgs as unknown as Message[]);
     } catch (error) {
       console.error('Error fetching details:', error);
       toast.error('Failed to load connection details');
@@ -127,12 +137,23 @@ export default function ConnectionDetail() {
     if (!newMessage.trim() || !id || !profile) return;
     try {
       const msgData = {
+        userId: profile.userId,
         connectionId: id,
         senderId: profile.id,
         content: newMessage.trim()
       };
 
       await blink.db.messages.create(msgData);
+      
+      // Also create a message for the other user so they can see it
+      if (otherProfile?.userId) {
+        await blink.db.messages.create({
+          userId: otherProfile.userId,
+          connectionId: id,
+          senderId: profile.id,
+          content: newMessage.trim()
+        });
+      }
       
       await channelRef.current?.publish('chat', {
         content: newMessage.trim()

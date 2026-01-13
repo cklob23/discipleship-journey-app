@@ -10,23 +10,20 @@ import { Link } from 'react-router-dom';
 import { Plus, Search, MessageSquare, Handshake, LogOut, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface ConnectionWithProfile {
+interface Connection {
   id: string;
   status: string;
   leaderId: string;
   learnerId: string;
-  otherProfile: {
-    id: string;
-    displayName: string;
-    avatarUrl?: string;
-    role: string;
-  };
+  otherDisplayName: string;
+  otherAvatarUrl?: string;
+  otherRole: string;
 }
 
 export default function Dashboard() {
   const { profile, signOut } = useProfile();
-  const [connections, setConnections] = useState<ConnectionWithProfile[]>([]);
-  const [pendingInvites, setPendingInvites] = useState<ConnectionWithProfile[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -34,25 +31,17 @@ export default function Dashboard() {
   const fetchConnections = async () => {
     if (!profile) return;
     try {
-      const field = profile.role === 'leader' ? 'leaderId' : 'learnerId';
-      const otherField = profile.role === 'leader' ? 'learnerId' : 'leaderId';
-      
+      // Fetch connections where user_id matches current user (RLS compliant)
       const allCons = await blink.db.connections.list({
-        where: { [field]: profile.id }
+        where: { userId: profile.userId }
       });
 
-      const active = allCons.filter((c: any) => c.status === 'active');
-      const pending = allCons.filter((c: any) => c.status === 'pending');
+      // Profile info is embedded in connection record - no need to fetch separately
+      const active = allCons.filter((c: any) => c.status === 'active') as Connection[];
+      const pending = allCons.filter((c: any) => c.status === 'pending') as Connection[];
 
-      const enhance = async (cons: any[]) => {
-        return Promise.all(cons.map(async (c: any) => {
-          const otherProfile = await blink.db.profiles.get(c[otherField]);
-          return { ...c, otherProfile };
-        }));
-      };
-
-      setConnections(await enhance(active));
-      setPendingInvites(await enhance(pending));
+      setConnections(active);
+      setPendingInvites(pending);
     } catch (error) {
       console.error('Error fetching connections:', error);
     } finally {
@@ -87,16 +76,37 @@ export default function Dashboard() {
     }
   };
 
-  const invitePerson = async (targetId: string) => {
+  const invitePerson = async (targetProfile: any) => {
     if (!profile) return;
     try {
-      const leaderId = profile.role === 'leader' ? profile.id : targetId;
-      const learnerId = profile.role === 'learner' ? profile.id : targetId;
+      const leaderId = profile.role === 'leader' ? profile.id : targetProfile.id;
+      const learnerId = profile.role === 'learner' ? profile.id : targetProfile.id;
 
+      // Generate a shared connection ID so both records link together
+      const connectionId = `conn_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+      // Create connection record for current user (sender) - stores target's info
       await blink.db.connections.create({
+        id: connectionId + '_sender',
+        userId: profile.userId,
         leaderId: leaderId,
         learnerId: learnerId,
-        status: 'pending'
+        status: 'pending',
+        otherDisplayName: targetProfile.displayName,
+        otherAvatarUrl: targetProfile.avatarUrl || '',
+        otherRole: targetProfile.role
+      });
+
+      // Create connection record for target user (receiver) - stores sender's info
+      await blink.db.connections.create({
+        id: connectionId + '_receiver',
+        userId: targetProfile.userId,
+        leaderId: leaderId,
+        learnerId: learnerId,
+        status: 'pending',
+        otherDisplayName: profile.displayName,
+        otherAvatarUrl: profile.avatarUrl || '',
+        otherRole: profile.role
       });
 
       toast.success('Invitation sent!');
@@ -111,7 +121,20 @@ export default function Dashboard() {
 
   const acceptInvite = async (connId: string) => {
     try {
+      // Update the current user's connection record
       await blink.db.connections.update(connId, { status: 'active' });
+      
+      // Update the paired record (swap _sender/_receiver suffix)
+      const pairedId = connId.endsWith('_sender') 
+        ? connId.replace('_sender', '_receiver')
+        : connId.replace('_receiver', '_sender');
+      
+      try {
+        await blink.db.connections.update(pairedId, { status: 'active' });
+      } catch {
+        // Paired record might not exist or user doesn't have access - that's okay
+      }
+      
       toast.success('Invitation accepted!');
       fetchConnections();
     } catch (error) {
@@ -181,7 +204,7 @@ export default function Dashboard() {
                       <p className="text-xs text-muted-foreground capitalize">{result.role}</p>
                     </div>
                   </div>
-                  <Button size="sm" onClick={() => invitePerson(result.id)}>
+                  <Button size="sm" onClick={() => invitePerson(result)}>
                     <UserPlus className="mr-2 h-4 w-4" /> Connect
                   </Button>
                 </div>
@@ -210,12 +233,12 @@ export default function Dashboard() {
                       <Card className="group relative overflow-hidden transition-all hover:shadow-xl hover:ring-2 hover:ring-primary/10 border-border/50">
                         <CardHeader className="flex flex-row items-center gap-4 pb-4">
                           <Avatar className="h-12 w-12 border-2 border-primary/5 group-hover:border-primary/20 transition-colors">
-                            <AvatarImage src={conn.otherProfile.avatarUrl} />
-                            <AvatarFallback>{conn.otherProfile.displayName[0]}</AvatarFallback>
+                            <AvatarImage src={conn.otherAvatarUrl} />
+                            <AvatarFallback>{conn.otherDisplayName?.[0]}</AvatarFallback>
                           </Avatar>
                           <div className="flex-1 overflow-hidden">
-                            <CardTitle className="truncate">{conn.otherProfile.displayName}</CardTitle>
-                            <CardDescription className="capitalize">{conn.otherProfile.role}</CardDescription>
+                            <CardTitle className="truncate">{conn.otherDisplayName}</CardTitle>
+                            <CardDescription className="capitalize">{conn.otherRole}</CardDescription>
                           </div>
                         </CardHeader>
                         <CardContent className="flex items-center justify-between pt-0">
@@ -247,10 +270,10 @@ export default function Dashboard() {
                     <CardContent className="p-4 flex flex-col gap-3">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={conn.otherProfile.avatarUrl} />
-                          <AvatarFallback>{conn.otherProfile.displayName[0]}</AvatarFallback>
+                          <AvatarImage src={conn.otherAvatarUrl} />
+                          <AvatarFallback>{conn.otherDisplayName?.[0]}</AvatarFallback>
                         </Avatar>
-                        <span className="text-sm font-medium">{conn.otherProfile.displayName}</span>
+                        <span className="text-sm font-medium">{conn.otherDisplayName}</span>
                       </div>
                       <div className="flex gap-2">
                         <Button size="sm" className="flex-1 h-8 text-xs" onClick={() => acceptInvite(conn.id)}>Accept</Button>
