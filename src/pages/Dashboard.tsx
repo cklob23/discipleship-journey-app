@@ -57,22 +57,20 @@ export default function Dashboard() {
     if (!searchQuery.trim() || !profile) return;
     try {
       const targetRole = profile.role === 'leader' ? 'learner' : 'leader';
+      // Fetch profiles matching the target role
       const results = await blink.db.profiles.list({
-        where: {
-          AND: [
-            { role: targetRole },
-            { id: { ne: profile.id } }
-          ]
-        },
-        limit: 5
+        where: { role: targetRole },
+        limit: 20
       });
-      // Simple client-side search since we don't have full-text search yet
+      // Client-side filtering: exclude self and match search query
       const filtered = results.filter((p: any) => 
-        p.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+        p.id !== profile.id && 
+        p.displayName?.toLowerCase().includes(searchQuery.toLowerCase())
       );
-      setSearchResults(filtered);
+      setSearchResults(filtered.slice(0, 5));
     } catch (error) {
       console.error('Search error:', error);
+      toast.error('Search failed. Please try again.');
     }
   };
 
