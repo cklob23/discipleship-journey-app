@@ -13,8 +13,25 @@ export default function Onboarding() {
   const [displayName, setDisplayName] = useState('');
   const [role, setRole] = useState<'leader' | 'learner' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const { refreshProfile } = useProfile();
   const navigate = useNavigate();
+
+  // Listen for auth state to get the current user
+  useEffect(() => {
+    const unsubscribe = blink.auth.onAuthStateChanged((state) => {
+      if (state.isLoading) return;
+      setAuthLoading(false);
+      if (state.user) {
+        setCurrentUser(state.user);
+      } else {
+        // Not authenticated, redirect to login
+        navigate('/');
+      }
+    });
+    return unsubscribe;
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,17 +40,20 @@ export default function Onboarding() {
       return;
     }
 
+    if (!currentUser) {
+      toast.error('Please sign in first');
+      navigate('/');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const { user } = await blink.auth.me();
-      if (!user) throw new Error('User not found');
-
       await blink.db.profiles.create({
-        userId: user.id,
+        userId: currentUser.id,
         displayName: displayName.trim(),
         role: role,
-        email: user.email,
-        avatarUrl: user.photoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${displayName}`
+        email: currentUser.email,
+        avatarUrl: currentUser.photoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${displayName}`
       });
 
       toast.success('Profile created successfully!');
@@ -46,6 +66,18 @@ export default function Onboarding() {
       setIsSubmitting(false);
     }
   };
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-secondary/30">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-secondary/30 px-4 py-12">
