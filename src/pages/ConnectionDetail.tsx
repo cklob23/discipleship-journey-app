@@ -36,6 +36,7 @@ export default function ConnectionDetail() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('chat');
   const channelRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -166,9 +167,10 @@ export default function ConnectionDetail() {
       await channelRef.current?.publish('covenant_update', {
         covenant: updated
       }, { userId: profile.id });
-
+      
       toast.success('Covenant signed!');
-    } catch (error) {
+      setActiveTab('chat');
+      } catch (error) {
       console.error('Signing error:', error);
     }
   };
@@ -226,7 +228,7 @@ export default function ConnectionDetail() {
       </header>
 
       <div className="flex-1 overflow-hidden">
-        <Tabs defaultValue="chat" className="h-full flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
           <div className="bg-background border-b px-4">
             <TabsList className="bg-transparent border-none p-0 h-12">
               <TabsTrigger value="chat" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-6 flex gap-2">
@@ -249,7 +251,7 @@ export default function ConnectionDetail() {
                     return (
                       <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                         {showHeader && !isMe && (
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 ml-1">{otherProfile?.display_name}</span>
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 ml-1">{otherProfile?.displayName}</span>
                         )}
                         <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl shadow-sm text-sm ${isMe ? 'bg-primary text-primary-foreground rounded-tr-none' : 'bg-secondary rounded-tl-none'}`}>
                           {msg.content}

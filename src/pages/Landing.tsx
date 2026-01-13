@@ -4,7 +4,8 @@ import { ChevronRight, Shield, Users, MessageSquare } from 'lucide-react';
 
 export default function Landing() {
   const handleLogin = () => {
-    blink.auth.login('/onboarding');
+    const redirectUrl = new URL('/onboarding', window.location.origin).toString();
+    blink.auth.login(redirectUrl);
   };
 
   return (
