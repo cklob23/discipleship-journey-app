@@ -57,17 +57,37 @@ export default function Dashboard() {
     if (!searchQuery.trim() || !profile) return;
     try {
       const targetRole = profile.role === 'leader' ? 'learner' : 'leader';
-      // Fetch profiles matching the target role
+      // Fetch all profiles - we'll filter client-side for flexibility
       const results = await blink.db.profiles.list({
-        where: { role: targetRole },
-        limit: 20
+        limit: 50
       });
-      // Client-side filtering: exclude self and match search query
-      const filtered = results.filter((p: any) => 
-        p.id !== profile.id && 
-        p.displayName?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setSearchResults(filtered.slice(0, 5));
+      
+      const searchLower = searchQuery.toLowerCase();
+      // Client-side filtering: exclude self, match role if specified, match search query
+      const filtered = results.filter((p: any) => {
+        // Exclude current user
+        if (p.userId === profile.userId) return false;
+        
+        // Get display name (handle both camelCase and snake_case)
+        const name = p.displayName || p.display_name || '';
+        const email = p.email || '';
+        const role = p.role || '';
+        
+        // Match by name or email
+        const matchesQuery = name.toLowerCase().includes(searchLower) || 
+                            email.toLowerCase().includes(searchLower);
+        
+        // Optionally filter by opposite role for leader/learner matching
+        const matchesRole = !targetRole || role === targetRole;
+        
+        return matchesQuery && matchesRole;
+      });
+      
+      setSearchResults(filtered.slice(0, 10));
+      
+      if (filtered.length === 0) {
+        toast.info('No users found matching your search.');
+      }
     } catch (error) {
       console.error('Search error:', error);
       toast.error('Search failed. Please try again.');
@@ -80,6 +100,11 @@ export default function Dashboard() {
       const leaderId = profile.role === 'leader' ? profile.id : targetProfile.id;
       const learnerId = profile.role === 'learner' ? profile.id : targetProfile.id;
 
+      // Get display names with fallbacks for both camelCase and snake_case
+      const targetDisplayName = targetProfile.displayName || targetProfile.display_name || targetProfile.email || 'Unknown';
+      const targetAvatarUrl = targetProfile.avatarUrl || targetProfile.avatar_url || '';
+      const targetUserId = targetProfile.userId || targetProfile.user_id;
+
       // Generate a shared connection ID so both records link together
       const connectionId = `conn_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
@@ -90,15 +115,15 @@ export default function Dashboard() {
         leaderId: leaderId,
         learnerId: learnerId,
         status: 'pending',
-        otherDisplayName: targetProfile.displayName,
-        otherAvatarUrl: targetProfile.avatarUrl || '',
-        otherRole: targetProfile.role
+        otherDisplayName: targetDisplayName,
+        otherAvatarUrl: targetAvatarUrl,
+        otherRole: targetProfile.role || 'user'
       });
 
       // Create connection record for target user (receiver) - stores sender's info
       await blink.db.connections.create({
         id: connectionId + '_receiver',
-        userId: targetProfile.userId,
+        userId: targetUserId,
         leaderId: leaderId,
         learnerId: learnerId,
         status: 'pending',
@@ -190,23 +215,27 @@ export default function Dashboard() {
 
           {searchResults.length > 0 && (
             <div className="mx-auto mt-4 max-w-2xl divide-y rounded-2xl border bg-background shadow-2xl animate-in">
-              {searchResults.map((result) => (
-                <div key={result.id} className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarImage src={result.avatarUrl} />
-                      <AvatarFallback>{result.displayName[0]}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h4 className="font-semibold">{result.displayName}</h4>
-                      <p className="text-xs text-muted-foreground capitalize">{result.role}</p>
+              {searchResults.map((result) => {
+                const displayName = result.displayName || result.display_name || result.email || 'Unknown';
+                const avatarUrl = result.avatarUrl || result.avatar_url;
+                return (
+                  <div key={result.id} className="flex items-center justify-between p-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarImage src={avatarUrl} />
+                        <AvatarFallback>{displayName[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h4 className="font-semibold">{displayName}</h4>
+                        <p className="text-xs text-muted-foreground capitalize">{result.role || 'user'}</p>
+                      </div>
                     </div>
+                    <Button size="sm" onClick={() => invitePerson(result)}>
+                      <UserPlus className="mr-2 h-4 w-4" /> Connect
+                    </Button>
                   </div>
-                  <Button size="sm" onClick={() => invitePerson(result)}>
-                    <UserPlus className="mr-2 h-4 w-4" /> Connect
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
