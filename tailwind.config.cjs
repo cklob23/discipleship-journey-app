@@ -65,8 +65,15 @@ module.exports = {
   			sm: 'calc(var(--radius) - 4px)'
   		},
   		fontFamily: {
-  			sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
-  			mono: ['var(--font-mono)', 'monospace']
+  			sans: [
+  				'var(--font-sans)'
+  			],
+  			serif: [
+  				'var(--font-serif)'
+  			],
+  			mono: [
+  				'var(--font-mono)'
+  			]
   		},
   		animation: {
   			'fade-in': 'fade-in 0.5s ease-out',

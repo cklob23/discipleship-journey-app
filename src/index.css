@@ -26,18 +26,9 @@
     --input: 240 5.9% 90%;
     --ring: 240 5.9% 10%;
     --radius: 0.75rem;
-
+    
     --font-sans: 'Geist', sans-serif;
     --font-mono: 'Geist Mono', monospace;
-
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
@@ -60,15 +51,6 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
-
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
 
@@ -78,25 +60,25 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
     font-family: var(--font-sans);
   }
 }
 
-.journey-grid {
-  background-size: 40px 40px;
-  background-image: radial-gradient(circle, hsl(var(--foreground) / 0.05) 1px, transparent 1px);
+.glass {
+  @apply backdrop-blur-md bg-background/80 border border-border/50;
 }
 
-.glass-card {
-  @apply bg-background/60 backdrop-blur-md border border-border/50;
+.animate-in {
+  animation: animate-in 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
-
-.animate-float {
-  animation: float 6s ease-in-out infinite;
+@keyframes animate-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
